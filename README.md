@@ -18,6 +18,10 @@ This saves manager for Stardew Valley simplifies gameplay across Steam and Andro
 
 Your contributions to this project allows Stardew Valley Saves Manager to be improved to deliver a better experience for everyone. Feel free to submit your code suggestions or bug reports.
 
+### Requirements for Windows
+
+- This program was written in Java, to run it, you will need to download [OpenJDK.](https://corretto.aws/downloads/latest/amazon-corretto-21-x64-windows-jdk.msi)
+
 ### Requirements for Android
 
 The following steps are necessary to access the Stardew Valley saves folder on your device and interact with it:
