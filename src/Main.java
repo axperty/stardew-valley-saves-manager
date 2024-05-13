@@ -13,6 +13,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -76,7 +77,7 @@ public class Main {
         tabbedPane.addTab("Android", androidPanel);
 
         // Backup all Steam saves before start
-        //backupAllSteamSaves();
+        backupAllSteamSaves();
 
         // Initial data loading
         updateTables();
@@ -300,7 +301,13 @@ public class Main {
                 // 4. Split the filename and extract data
                 String[] parts = line.split("_");
                 if (parts.length == 2) {
-                    saveData.add(new String[]{parts[0], parts[1], "dd/mm/yyyy"}); // Replace "dd/mm/yyyy" with actual logic to get the last played date
+                    String saveName = parts[0];
+                    String saveId = parts[1];
+
+                    // Get the last modified date using ADB
+                    String lastPlayed = getAndroidLastModifiedDate(saveName + "_" + saveId);
+
+                    saveData.add(new String[]{saveName, saveId, lastPlayed});
                 }
             }
 
@@ -357,6 +364,27 @@ public class Main {
         } catch (IOException e) {
             System.err.println("Error getting last modified date for " + path.toString() +
                     ": " + e.getMessage());
+            return "N/A";
+        }
+    }
+
+    // Helper function to get the last modified date of an Android file using ADB
+    private String getAndroidLastModifiedDate(String fileName) {
+        try {
+            String filePath = "/storage/emulated/0/Android/data/com.chucklefish.stardewvalley/files/Saves/" + fileName;
+            String[] command = {"adb", "shell", "stat", "-c", "%y", filePath};
+            Process process = Runtime.getRuntime().exec(command);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String lastModified = reader.readLine();
+
+            // Format the output
+            SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+            SimpleDateFormat outputFormat = new SimpleDateFormat("dd/MM/yyyy");
+            Date date = inputFormat.parse(lastModified.trim());
+            return outputFormat.format(date);
+
+        } catch (IOException | ParseException e) {
+            e.printStackTrace();
             return "N/A";
         }
     }
