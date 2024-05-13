@@ -1,5 +1,7 @@
+![Stardew Valley Saves Manager](https://i.imgur.com/btDXjWb.png)
+
 # Stardew Valley Saves Manager
-___
+
 A simple manager for Stardew Valley saves, allowing you to easily backup, delete, or move saves from both Steam and your Android device.
 
 ### Overview
