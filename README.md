@@ -1,4 +1,4 @@
-![Stardew Valley Saves Manager](https://i.imgur.com/btDXjWb.png)
+![Stardew Valley Saves Manager](https://i.imgur.com/TrQmNH4.png)
 
 # Stardew Valley Saves Manager
 
