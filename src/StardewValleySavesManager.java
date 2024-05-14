@@ -130,7 +130,7 @@ public class StardewValleySavesManager {
         contentPanel.add(descriptionLabel);
 
         // Credits
-        JLabel creditsLabel = new JLabel("<html><br/>Developed by Axperty.<br/>Under the MIT License.<br/>Version 0.0.1<br/><br/>Stardew Valley is a game made by ConcernedApe.<br/></html>");
+        JLabel creditsLabel = new JLabel("<html><br/>Developed by Axperty<br/>Under the MIT License<br/>Version 0.0.0.2-alpha<br/><br/>Stardew Valley is a game made by ConcernedApe.<br/></html>");
         creditsLabel.setFont(creditsLabel.getFont().deriveFont(Font.BOLD, 12));
         contentPanel.add(creditsLabel);
 

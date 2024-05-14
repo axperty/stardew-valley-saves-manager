@@ -1,5 +1,5 @@
 <component name="ArtifactManager">
-  <artifact type="jar" build-on-make="true" name="StardewValleySavesManager:jar">
+  <artifact type="jar" name="StardewValleySavesManager:jar">
     <output-path>$PROJECT_DIR$/out/artifacts/StardewValleySavesManager_jar</output-path>
     <root id="archive" name="StardewValleySavesManager.jar">
       <element id="module-output" name="StardewValleySavesManager" />
