@@ -1,5 +1,8 @@
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -24,6 +27,10 @@ public class Main {
     private JTabbedPane tabbedPane;
     private JTable androidTable;
     private JTable steamTable;
+    private JTextField steamSearchField;
+    private JTextField androidSearchField;
+    private TableRowSorter<DefaultTableModel> steamSorter;
+    private TableRowSorter<DefaultTableModel> androidSorter;
 
     public static void main(String[] args) {
         EventQueue.invokeLater(() -> {
@@ -41,48 +48,53 @@ public class Main {
     }
 
     private void initialize() {
+        // Initialize main frame
         frame = new JFrame("Stardew Valley Saves Manager");
         frame.setSize(550, 350);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        // Menu Bar
+        // Create Menu Bar
         JMenuBar menuBar = new JMenuBar();
         frame.setJMenuBar(menuBar);
 
-        // About
+        // About Menu
         JMenu aboutMenu = new JMenu("About");
-        menuBar.add(aboutMenu);
-
-        // Help
-        JMenu donationsMenu = new JMenu("Help");
-        menuBar.add(donationsMenu);
-
-        // Credits Menu Item
         JMenuItem aboutMenuItem = new JMenuItem("Credits");
         aboutMenuItem.addActionListener(e -> showAboutDialog());
         aboutMenu.add(aboutMenuItem);
 
-        // Connect Android Device Menu Item
-        JMenuItem donateMenuItem = new JMenuItem("Connect Android device");
-        donateMenuItem.addActionListener(e -> openDonationLink());
-        donationsMenu.add(donateMenuItem);
+        JMenuItem donateMenuItem = new JMenuItem("Donate");
+        donateMenuItem.addActionListener(e -> donateLink());
+        aboutMenu.add(donateMenuItem);
+        menuBar.add(aboutMenu);
 
+        // Help Menu
+        JMenu helpMenu = new JMenu("Help");
+        JMenuItem connectAndroidMenuItem = new JMenuItem("Connect Android device");
+        connectAndroidMenuItem.addActionListener(e -> connectAndroidLink());
+        helpMenu.add(connectAndroidMenuItem);
+        menuBar.add(helpMenu);
+
+        // Create tabbed pane
         tabbedPane = new JTabbedPane();
         frame.getContentPane().add(tabbedPane, BorderLayout.CENTER);
 
-        JPanel steamPanel = createPlatformPanel(steamTable = createTable());
-        tabbedPane.addTab("Steam", steamPanel);
+        // Steam Panel
+        steamTable = createTable();
+        JPanel steamPanel = createPlatformPanel(steamTable);
+        tabbedPane.addTab("Steam Folder", steamPanel);
 
-        JPanel androidPanel = createPlatformPanel(androidTable = createTable());
-        tabbedPane.addTab("Android", androidPanel);
+        // Android Panel
+        androidTable = createTable();
+        JPanel androidPanel = createPlatformPanel(androidTable);
+        tabbedPane.addTab("Android Folder", androidPanel);
 
-        // Backup all Steam saves before start
-        backupAllSteamSaves();
-
-        // Initial data loading
-        updateTables();
+        // Initial actions
+        //backupAllSteamSaves(); // Backup all Steam saves before start
+        updateTables();       // Load initial data into tables
     }
 
+    // About Dialog
     private void showAboutDialog() {
         JDialog dialog = new JDialog(frame, "Credits", true);
         dialog.setSize(450, 290);
@@ -121,9 +133,19 @@ public class Main {
         dialog.setVisible(true);
     }
 
-    private void openDonationLink() {
+
+    // Menu Links
+    private void donateLink() {
         try {
             Desktop.getDesktop().browse(new URI("https://paypal.me/kevgelhorn"));
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(frame, "Error opening donation link: " + ex.getMessage());
+        }
+    }
+
+    private void connectAndroidLink() {
+        try {
+            Desktop.getDesktop().browse(new URI("https://github.com/axperty/stardew-valley-saves-manager?tab=readme-ov-file#requirements"));
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(frame, "Error opening donation link: " + ex.getMessage());
         }
@@ -132,25 +154,76 @@ public class Main {
     private JPanel createPlatformPanel(JTable table) {
         JPanel panel = new JPanel(new BorderLayout());
 
-        // Title panel
-        JPanel titlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JLabel titleLabel = new JLabel("Stardew Valley Saves Manager");
-        titleLabel.setFont(new Font(titleLabel.getFont().getName(), Font.BOLD, 16)); // Make title bold
-        titlePanel.add(titleLabel);
-        panel.add(titlePanel, BorderLayout.NORTH);
-
         // Center panel for subtitle and table
         JPanel centerPanel = new JPanel(new BorderLayout());
 
         // Subtitle panel
         JPanel subtitlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JLabel subtitleLabel = new JLabel("Select your save below:");
-        subtitleLabel.setFont(new Font(titleLabel.getFont().getName(), Font.PLAIN, 14)); // Make title bol
+        JLabel subtitleLabel = new JLabel("");
+        subtitleLabel.setFont(new Font(subtitleLabel.getFont().getName(), Font.PLAIN, 14));
         subtitlePanel.add(subtitleLabel);
-        centerPanel.add(subtitlePanel, BorderLayout.NORTH); // Subtitle at top of center
+        centerPanel.add(subtitlePanel, BorderLayout.NORTH);
 
-        centerPanel.add(new JScrollPane(table), BorderLayout.CENTER); // Table below subtitle
-        panel.add(centerPanel, BorderLayout.CENTER); // Add center panel to main panel
+        // Modify subtitle text based on the table being used
+        if (table == steamTable) {
+            subtitleLabel.setText("List of saves in your Steam folder:");
+        } else if (table == androidTable) {
+            subtitleLabel.setText("List of saves in your Android folder:");
+        }
+
+        centerPanel.add(new JScrollPane(table), BorderLayout.CENTER);
+        panel.add(centerPanel, BorderLayout.CENTER);
+
+        // Search bar panel
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JLabel searchLabel = new JLabel("Search:");
+        JTextField searchField = new JTextField(15);
+        searchPanel.add(searchLabel);
+        searchPanel.add(searchField);
+        centerPanel.add(searchPanel, BorderLayout.SOUTH);
+
+        // Add search functionality based on the table
+        if (table == steamTable) {
+            steamSearchField = searchField;
+            steamSorter = new TableRowSorter<>((DefaultTableModel) steamTable.getModel());
+            steamTable.setRowSorter(steamSorter);
+            searchField.getDocument().addDocumentListener(new DocumentListener() {
+                @Override
+                public void insertUpdate(DocumentEvent e) {
+                    filterTable(steamSearchField, steamSorter);
+                }
+
+                @Override
+                public void removeUpdate(DocumentEvent e) {
+                    filterTable(steamSearchField, steamSorter);
+                }
+
+                @Override
+                public void changedUpdate(DocumentEvent e) {
+                    filterTable(steamSearchField, steamSorter);
+                }
+            });
+        } else if (table == androidTable) {
+            androidSearchField = searchField;
+            androidSorter = new TableRowSorter<>((DefaultTableModel) androidTable.getModel());
+            androidTable.setRowSorter(androidSorter);
+            searchField.getDocument().addDocumentListener(new DocumentListener() {
+                @Override
+                public void insertUpdate(DocumentEvent e) {
+                    filterTable(androidSearchField, androidSorter);
+                }
+
+                @Override
+                public void removeUpdate(DocumentEvent e) {
+                    filterTable(androidSearchField, androidSorter);
+                }
+
+                @Override
+                public void changedUpdate(DocumentEvent e) {
+                    filterTable(androidSearchField, androidSorter);
+                }
+            });
+        }
 
         // Panel for buttons to arrange them horizontally
         JPanel buttonPanel = new JPanel(new FlowLayout());
@@ -180,6 +253,20 @@ public class Main {
         return panel;
     }
 
+    private void filterTable(JTextField searchField, TableRowSorter<DefaultTableModel> sorter) {
+        String text = searchField.getText();
+        if (text.trim().length() == 0) {
+            sorter.setRowFilter(null);
+        } else {
+            try {
+                // Search in both Save Name and ID columns
+                sorter.setRowFilter(RowFilter.regexFilter("(?i)" + text, 0, 1));
+            } catch (java.util.regex.PatternSyntaxException e) {
+                System.err.println("Invalid regex pattern: " + e.getMessage());
+            }
+        }
+    }
+
     private void moveSaveBetweenPlatforms(JTable sourceTable, String targetPlatform) {
         int selectedRow = sourceTable.getSelectedRow();
         if (selectedRow != -1) {
@@ -192,7 +279,7 @@ public class Main {
                 moveSaveToAndroid(saveName, saveId);
             }
         } else {
-            JOptionPane.showMessageDialog(frame, "Please select a save to move.");
+            JOptionPane.showMessageDialog(frame, "Please choose a save to move.");
         }
     }
 
@@ -208,12 +295,15 @@ public class Main {
         executeSaveTransfer(steamPath, androidPath);
     }
 
+    // --- Save Transfer Methods ---
+
     private void executeSaveTransfer(String sourcePath, String destinationPath) {
         try {
-            // 1. Execute ADB push/pull command
-            String[] command = (sourcePath.startsWith("/storage") ?
-                    new String[]{"adb", "pull", sourcePath, destinationPath} :
-                    new String[]{"adb", "push", sourcePath, destinationPath});
+            // Determine whether to push or pull based on source path
+            String[] command = (sourcePath.startsWith("/storage"))
+                    ? new String[]{"adb", "pull", sourcePath, destinationPath}
+                    : new String[]{"adb", "push", sourcePath, destinationPath};
+
             Process process = Runtime.getRuntime().exec(command);
             int exitCode = process.waitFor();
 
@@ -222,13 +312,20 @@ public class Main {
                 JOptionPane.showMessageDialog(frame, "Save moved successfully!");
             } else {
                 System.err.println("No Android device connected.");
-                JOptionPane.showMessageDialog(frame, "No Android device connected. Please connect your device and click Move Save to Android.", "No Device", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(frame,
+                        "No Android device connected. Please connect your device and click 'Move Save to Android'.",
+                        "No Device",
+                        JOptionPane.WARNING_MESSAGE);
             }
         } catch (IOException | InterruptedException ex) {
             ex.printStackTrace();
             JOptionPane.showMessageDialog(frame, "Error moving save. Check console for details.");
         }
     }
+
+
+
+// --- Table Methods ---
 
     private JTable createTable() {
         JTable table = new JTable();
@@ -263,18 +360,18 @@ public class Main {
         }
     }
 
-    // **These methods will use ADB commands to get data**
+// --- Data Retrieval Methods (using ADB) ---
+
     private List<String[]> getAndroidSavesData() {
         List<String[]> saveData = new ArrayList<>();
         try {
-            // 1. Execute ADB command to list devices
+            // 1. Check if an Android device is connected
             String[] deviceListCommand = {"adb", "devices"};
             Process deviceListProcess = Runtime.getRuntime().exec(deviceListCommand);
             BufferedReader deviceListReader = new BufferedReader(new InputStreamReader(deviceListProcess.getInputStream()));
 
             // Skip the first line ("List of devices attached")
             deviceListReader.readLine();
-
             String deviceLine;
             boolean deviceFound = false;
             while ((deviceLine = deviceListReader.readLine()) != null) {
@@ -285,33 +382,33 @@ public class Main {
             }
 
             if (!deviceFound) {
-                // No devices connected, show message and refresh button
-                JOptionPane.showMessageDialog(frame, "No Android device connected. Please connect your device and click Refresh.", "No Device", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(frame,
+                        "No Android device connected. Please connect your device and click 'Refresh'.",
+                        "No Device",
+                        JOptionPane.WARNING_MESSAGE);
                 return saveData;
             }
 
-            // 2. Execute ADB command to list files if device is connected
+            // 2. List files in the Android saves directory
             String[] command = {"adb", "shell", "ls", "/storage/emulated/0/Android/data/com.chucklefish.stardewvalley/files/Saves"};
             Process process = Runtime.getRuntime().exec(command);
-
-            // 3. Read output of ADB command
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+
+            // 3. Process each file found
             String line;
             while ((line = reader.readLine()) != null) {
-                // 4. Split the filename and extract data
                 String[] parts = line.split("_");
                 if (parts.length == 2) {
                     String saveName = parts[0];
                     String saveId = parts[1];
 
-                    // Get the last modified date using ADB
+                    // Get last modified date using ADB
                     String lastPlayed = getAndroidLastModifiedDate(saveName + "_" + saveId);
-
                     saveData.add(new String[]{saveName, saveId, lastPlayed});
                 }
             }
 
-            // 5. Error handling
+            // 4. Error handling
             int exitCode = process.waitFor();
             if (exitCode != 0) {
                 System.err.println("Error executing ADB command. Exit code: " + exitCode);
@@ -326,14 +423,17 @@ public class Main {
 
     private List<String[]> getSteamSavesData() {
         List<String[]> saveData = new ArrayList<>();
+
         // Get the Steam user's AppData path
         String appDataPath = System.getenv("APPDATA");
         if (appDataPath == null) {
             System.err.println("Error: Unable to get APPDATA environment variable.");
             return saveData;
         }
+
         String savesDirectory = appDataPath + "/StardewValley/Saves";
-        // Use Java's File API to read directory contents
+
+        // Read directory contents using Java File API
         try {
             Files.list(Paths.get(savesDirectory))
                     .filter(Files::isDirectory)
@@ -349,9 +449,11 @@ public class Main {
                             System.err.println("Skipping invalid save folder name: " + fileName);
                         }
                     });
+
         } catch (IOException e) {
             System.err.println("Error: Unable to access Steam saves directory: " + e.getMessage());
         }
+
         return saveData;
     }
 
