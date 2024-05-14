@@ -2,10 +2,9 @@ import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
 import javax.swing.table.TableRowSorter;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -22,7 +21,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-public class Main {
+public class StardewValleySavesManager {
     private JFrame frame;
     private JTabbedPane tabbedPane;
     private JTable androidTable;
@@ -35,7 +34,7 @@ public class Main {
     public static void main(String[] args) {
         EventQueue.invokeLater(() -> {
             try {
-                Main window = new Main();
+                StardewValleySavesManager window = new StardewValleySavesManager();
                 window.frame.setVisible(true);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -43,15 +42,26 @@ public class Main {
         });
     }
 
-    public Main() {
+    public StardewValleySavesManager() {
         initialize();
     }
 
     private void initialize() {
+
+        // Set the Windows Look and Feel
+        try {
+            UIManager.setLookAndFeel("com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {
+            System.err.println("Windows Look and Feel not available: " + e.getMessage());
+        }
+
         // Initialize main frame
         frame = new JFrame("Stardew Valley Saves Manager");
         frame.setSize(550, 350);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        // Set window to appear in the center
+        frame.setLocationRelativeTo(null);
 
         // Create Menu Bar
         JMenuBar menuBar = new JMenuBar();
@@ -90,8 +100,8 @@ public class Main {
         tabbedPane.addTab("Android Folder", androidPanel);
 
         // Initial actions
-        //backupAllSteamSaves(); // Backup all Steam saves before start
-        updateTables();       // Load initial data into tables
+        backupAllSteamSaves();
+        updateSteamTable();
     }
 
     // About Dialog
@@ -166,9 +176,9 @@ public class Main {
 
         // Modify subtitle text based on the table being used
         if (table == steamTable) {
-            subtitleLabel.setText("List of saves in your Steam folder:");
+            subtitleLabel.setText("Files on your Steam Folder");
         } else if (table == androidTable) {
-            subtitleLabel.setText("List of saves in your Android folder:");
+            subtitleLabel.setText("Files on your Android Folder");
         }
 
         centerPanel.add(new JScrollPane(table), BorderLayout.CENTER);
@@ -176,7 +186,7 @@ public class Main {
 
         // Search bar panel
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        JLabel searchLabel = new JLabel("Search:");
+        JLabel searchLabel = new JLabel("Search");
         JTextField searchField = new JTextField(15);
         searchPanel.add(searchLabel);
         searchPanel.add(searchField);
@@ -234,8 +244,8 @@ public class Main {
         moveButton.addActionListener(e -> moveSaveBetweenPlatforms(table, targetPlatform));
         buttonPanel.add(moveButton);
 
-        // Backup button
-        JButton backupButton = new JButton("Backup");
+        // Backup Save button
+        JButton backupButton = new JButton("Backup Save");
         backupButton.addActionListener(e -> backupSave(table));
         buttonPanel.add(backupButton);
 
@@ -244,8 +254,8 @@ public class Main {
         deleteButton.addActionListener(e -> deleteSave(table));
         buttonPanel.add(deleteButton);
 
-        // Refresh button
-        JButton refreshButton = new JButton("Refresh");
+        // Refresh List button
+        JButton refreshButton = new JButton("Refresh List");
         refreshButton.addActionListener(e -> updateTables());
         buttonPanel.add(refreshButton);
 
@@ -267,6 +277,7 @@ public class Main {
         }
     }
 
+    // Move Save Between Platforms
     private void moveSaveBetweenPlatforms(JTable sourceTable, String targetPlatform) {
         int selectedRow = sourceTable.getSelectedRow();
         if (selectedRow != -1) {
@@ -283,12 +294,14 @@ public class Main {
         }
     }
 
+    // Move Save to Steam
     private void moveSaveToSteam(String saveName, String saveId) {
         String androidPath = "/storage/emulated/0/Android/data/com.chucklefish.stardewvalley/files/Saves/" + saveName + "_" + saveId;
         String steamPath = System.getenv("APPDATA") + "/StardewValley/Saves/" + saveName + "_" + saveId;
         executeSaveTransfer(androidPath, steamPath);
     }
 
+    // Move Save to Android
     private void moveSaveToAndroid(String saveName, String saveId) {
         String steamPath = System.getenv("APPDATA") + "/StardewValley/Saves/" + saveName + "_" + saveId;
         String androidPath = "/storage/emulated/0/Android/data/com.chucklefish.stardewvalley/files/Saves/" + saveName + "_" + saveId;
@@ -296,7 +309,6 @@ public class Main {
     }
 
     // --- Save Transfer Methods ---
-
     private void executeSaveTransfer(String sourcePath, String destinationPath) {
         try {
             // Determine whether to push or pull based on source path
@@ -323,25 +335,27 @@ public class Main {
         }
     }
 
-
-
-// --- Table Methods ---
-
+    // --- Table Methods ---
     private JTable createTable() {
         JTable table = new JTable();
         DefaultTableModel model = new DefaultTableModel();
-        model.addColumn("Save Name");
+        model.addColumn("Farm Name");
         model.addColumn("ID");
         model.addColumn("Last Played");
         table.setModel(model);
+        table.setRowHeight(25);
+        JTableHeader header = table.getTableHeader();
+        header.setFont(header.getFont().deriveFont(Font.BOLD));
         return table;
     }
 
+    // Update Lists
     private void updateTables() {
         updateAndroidTable();
         updateSteamTable();
     }
 
+    // Update Android Table
     private void updateAndroidTable() {
         DefaultTableModel model = (DefaultTableModel) androidTable.getModel();
         model.setRowCount(0); // Clear existing data
@@ -351,6 +365,7 @@ public class Main {
         }
     }
 
+    // Update Steam Table
     private void updateSteamTable() {
         DefaultTableModel model = (DefaultTableModel) steamTable.getModel();
         model.setRowCount(0); // Clear existing data
@@ -360,12 +375,11 @@ public class Main {
         }
     }
 
-// --- Data Retrieval Methods (using ADB) ---
-
+    // --- Data Retrieval Methods (using ADB) ---
     private List<String[]> getAndroidSavesData() {
         List<String[]> saveData = new ArrayList<>();
         try {
-            // 1. Check if an Android device is connected
+            // Check if an Android device is connected
             String[] deviceListCommand = {"adb", "devices"};
             Process deviceListProcess = Runtime.getRuntime().exec(deviceListCommand);
             BufferedReader deviceListReader = new BufferedReader(new InputStreamReader(deviceListProcess.getInputStream()));
@@ -389,12 +403,12 @@ public class Main {
                 return saveData;
             }
 
-            // 2. List files in the Android saves directory
+            // List files in the Android saves directory
             String[] command = {"adb", "shell", "ls", "/storage/emulated/0/Android/data/com.chucklefish.stardewvalley/files/Saves"};
             Process process = Runtime.getRuntime().exec(command);
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 
-            // 3. Process each file found
+            // Process each file found
             String line;
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split("_");
@@ -408,7 +422,7 @@ public class Main {
                 }
             }
 
-            // 4. Error handling
+            // Error handling
             int exitCode = process.waitFor();
             if (exitCode != 0) {
                 System.err.println("Error executing ADB command. Exit code: " + exitCode);
@@ -461,7 +475,7 @@ public class Main {
         try {
             BasicFileAttributes attr = Files.readAttributes(path, BasicFileAttributes.class);
             FileTime lastModifiedTime = attr.lastModifiedTime();
-            SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+            SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy");
             return dateFormat.format(new Date(lastModifiedTime.toMillis()));
         } catch (IOException e) {
             System.err.println("Error getting last modified date for " + path.toString() +
@@ -481,7 +495,7 @@ public class Main {
 
             // Format the output
             SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
-            SimpleDateFormat outputFormat = new SimpleDateFormat("dd/MM/yyyy");
+            SimpleDateFormat outputFormat = new SimpleDateFormat("MM/dd/yyyy");
             Date date = inputFormat.parse(lastModified.trim());
             return outputFormat.format(date);
 
@@ -642,7 +656,7 @@ public class Main {
                     try {
                         Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING);
                     } catch (IOException e) {
-                        System.err.println("Error copying file " + sourcePath + ": " + e.getMessage());
+                        System.err.println("File already exists " + sourcePath + ": " + e.getMessage());
                     }
                 });
     }
