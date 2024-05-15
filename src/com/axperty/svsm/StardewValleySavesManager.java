@@ -1,3 +1,5 @@
+package com.axperty.svsm;
+
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -17,8 +19,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
+import java.util.*;
 import java.util.List;
 
 public class StardewValleySavesManager {
@@ -30,6 +31,7 @@ public class StardewValleySavesManager {
     private JTextField androidSearchField;
     private TableRowSorter<DefaultTableModel> steamSorter;
     private TableRowSorter<DefaultTableModel> androidSorter;
+    private ResourceBundle bundle;
 
     public static void main(String[] args) {
         EventQueue.invokeLater(() -> {
@@ -43,6 +45,10 @@ public class StardewValleySavesManager {
     }
 
     public StardewValleySavesManager() {
+        // Set the default locale for the program.
+        Locale locale = Locale.getDefault();
+        // Set the resource bundle based on the locale
+        bundle = ResourceBundle.getBundle("com.axperty.svsm.lang.en_us", locale);
         initialize();
     }
 
@@ -56,7 +62,9 @@ public class StardewValleySavesManager {
         }
 
         // Initialize main frame
-        frame = new JFrame("Stardew Valley Saves Manager");
+        frame = new JFrame();
+        // Set window title using resource bundle
+        frame.setTitle(bundle.getString("window.title"));
         frame.setSize(550, 350);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
@@ -67,22 +75,30 @@ public class StardewValleySavesManager {
         JMenuBar menuBar = new JMenuBar();
         frame.setJMenuBar(menuBar);
 
-        // About Menu
-        JMenu aboutMenu = new JMenu("About");
-        JMenuItem aboutMenuItem = new JMenuItem("Credits");
-        aboutMenuItem.addActionListener(e -> showAboutDialog());
-        aboutMenu.add(aboutMenuItem);
+        // Options Menu
+        JMenu optionsMenu = new JMenu(bundle.getString("menu.options.title"));
 
-        JMenuItem donateMenuItem = new JMenuItem("Donate");
-        donateMenuItem.addActionListener(e -> donateLink());
-        aboutMenu.add(donateMenuItem);
-        menuBar.add(aboutMenu);
+        JMenuItem refreshList = new JMenuItem(bundle.getString("menu.options.refresh"));
+        refreshList.addActionListener(e -> updateTables());
+        optionsMenu.add(refreshList);
+
+        menuBar.add(optionsMenu);
 
         // Help Menu
-        JMenu helpMenu = new JMenu("Help");
-        JMenuItem connectAndroidMenuItem = new JMenuItem("Connect Android device");
+        JMenu helpMenu = new JMenu(bundle.getString("menu.help.title"));
+
+        JMenuItem connectAndroidMenuItem = new JMenuItem(bundle.getString("menu.help.connect_android"));
         connectAndroidMenuItem.addActionListener(e -> connectAndroidLink());
         helpMenu.add(connectAndroidMenuItem);
+
+        JMenuItem donateMenuItem = new JMenuItem(bundle.getString("menu.help.donate"));
+        donateMenuItem.addActionListener(e -> donateLink());
+        helpMenu.add(donateMenuItem);
+
+        JMenuItem aboutMenuItem = new JMenuItem(bundle.getString("menu.help.about"));
+        aboutMenuItem.addActionListener(e -> showAboutDialog());
+        helpMenu.add(aboutMenuItem);
+
         menuBar.add(helpMenu);
 
         // Create tabbed pane
@@ -92,12 +108,12 @@ public class StardewValleySavesManager {
         // Steam Panel
         steamTable = createTable();
         JPanel steamPanel = createPlatformPanel(steamTable);
-        tabbedPane.addTab("Steam Folder", steamPanel);
+        tabbedPane.addTab(bundle.getString("panel.steam_folder.title"), steamPanel);
 
         // Android Panel
         androidTable = createTable();
         JPanel androidPanel = createPlatformPanel(androidTable);
-        tabbedPane.addTab("Android Folder", androidPanel);
+        tabbedPane.addTab(bundle.getString("panel.android_folder.title"), androidPanel);
 
         // Initial actions
         backupAllSteamSaves();
@@ -106,7 +122,7 @@ public class StardewValleySavesManager {
 
     // About Dialog
     private void showAboutDialog() {
-        JDialog dialog = new JDialog(frame, "Credits", true);
+        JDialog dialog = new JDialog(frame, bundle.getString("dialog.about.title"), true);
         dialog.setSize(450, 290);
         dialog.setResizable(false);
         dialog.setLayout(new BorderLayout());
@@ -149,7 +165,7 @@ public class StardewValleySavesManager {
         try {
             Desktop.getDesktop().browse(new URI("https://paypal.me/kevgelhorn"));
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(frame, "Error opening donation link: " + ex.getMessage());
+            JOptionPane.showMessageDialog(frame, bundle.getString("dialog.error.donate_link") + ex.getMessage());
         }
     }
 
@@ -157,36 +173,22 @@ public class StardewValleySavesManager {
         try {
             Desktop.getDesktop().browse(new URI("https://github.com/axperty/stardew-valley-saves-manager?tab=readme-ov-file#requirements"));
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(frame, "Error opening donation link: " + ex.getMessage());
+            JOptionPane.showMessageDialog(frame, bundle.getString("dialog.error.connect_android_link" + ex.getMessage()));
         }
     }
 
     private JPanel createPlatformPanel(JTable table) {
         JPanel panel = new JPanel(new BorderLayout());
 
-        // Center panel for subtitle and table
+        // Center panel for the table
         JPanel centerPanel = new JPanel(new BorderLayout());
-
-        // Subtitle panel
-        JPanel subtitlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JLabel subtitleLabel = new JLabel("");
-        subtitleLabel.setFont(new Font(subtitleLabel.getFont().getName(), Font.PLAIN, 14));
-        subtitlePanel.add(subtitleLabel);
-        centerPanel.add(subtitlePanel, BorderLayout.NORTH);
-
-        // Modify subtitle text based on the table being used
-        if (table == steamTable) {
-            subtitleLabel.setText("Files on your Steam Folder");
-        } else if (table == androidTable) {
-            subtitleLabel.setText("Files on your Android Folder");
-        }
 
         centerPanel.add(new JScrollPane(table), BorderLayout.CENTER);
         panel.add(centerPanel, BorderLayout.CENTER);
 
         // Search bar panel
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        JLabel searchLabel = new JLabel("Search");
+        JLabel searchLabel = new JLabel(bundle.getString("search.bar.title"));
         JTextField searchField = new JTextField(15);
         searchPanel.add(searchLabel);
         searchPanel.add(searchField);
@@ -239,25 +241,25 @@ public class StardewValleySavesManager {
         JPanel buttonPanel = new JPanel(new FlowLayout());
 
         // Move to other platform button
-        String targetPlatform = (table == androidTable) ? "Steam" : "Android";
-        JButton moveButton = new JButton("Move Save to " + targetPlatform);
+        String targetPlatform = (table == androidTable) ? " Steam" : " Android";
+        JButton moveButton = new JButton(bundle.getString("label.move_save_to") + targetPlatform);
         moveButton.addActionListener(e -> moveSaveBetweenPlatforms(table, targetPlatform));
         buttonPanel.add(moveButton);
 
         // Backup Save button
-        JButton backupButton = new JButton("Backup Save");
+        JButton backupButton = new JButton(bundle.getString("button.backup"));
         backupButton.addActionListener(e -> backupSave(table));
         buttonPanel.add(backupButton);
 
         // Delete Save button
-        JButton deleteButton = new JButton("Delete Save");
+        JButton deleteButton = new JButton(bundle.getString("button.delete_save"));
         deleteButton.addActionListener(e -> deleteSave(table));
         buttonPanel.add(deleteButton);
 
-        // Refresh List button
-        JButton refreshButton = new JButton("Refresh List");
-        refreshButton.addActionListener(e -> updateTables());
-        buttonPanel.add(refreshButton);
+//        // Refresh List button
+//        JButton refreshButton = new JButton("Refresh List");
+//        refreshButton.addActionListener(e -> updateTables());
+//        buttonPanel.add(refreshButton);
 
         panel.add(buttonPanel, BorderLayout.SOUTH);
         return panel;
@@ -290,7 +292,7 @@ public class StardewValleySavesManager {
                 moveSaveToAndroid(saveName, saveId);
             }
         } else {
-            JOptionPane.showMessageDialog(frame, "Please choose a save to move.");
+            JOptionPane.showMessageDialog(frame, bundle.getString("dialog.select_save_to_move"));
         }
     }
 
@@ -321,17 +323,17 @@ public class StardewValleySavesManager {
 
             if (exitCode == 0) {
                 updateTables();
-                JOptionPane.showMessageDialog(frame, "Save moved successfully!");
+                JOptionPane.showMessageDialog(frame, bundle.getString("dialog.move_successful"));
             } else {
                 System.err.println("No Android device connected.");
                 JOptionPane.showMessageDialog(frame,
-                        "No Android device connected. Please connect your device and click 'Move Save to Android'.",
-                        "No Device",
+                        bundle.getString("dialog.error.no_device_move"),
+                        bundle.getString("dialog.error.no_device_move.title"),
                         JOptionPane.WARNING_MESSAGE);
             }
         } catch (IOException | InterruptedException ex) {
             ex.printStackTrace();
-            JOptionPane.showMessageDialog(frame, "Error moving save. Check console for details.");
+            JOptionPane.showMessageDialog(frame, bundle.getString("dialog.error.device_moving_save"));
         }
     }
 
@@ -339,13 +341,14 @@ public class StardewValleySavesManager {
     private JTable createTable() {
         JTable table = new JTable();
         DefaultTableModel model = new DefaultTableModel();
-        model.addColumn("Farm Name");
-        model.addColumn("ID");
-        model.addColumn("Last Played");
+        model.addColumn(bundle.getString("table.farm_name.title"));
+        model.addColumn(bundle.getString("table.id.title"));
+        model.addColumn(bundle.getString("table.last_played.title"));
         table.setModel(model);
-        table.setRowHeight(25);
+        table.setRowHeight(30);
         JTableHeader header = table.getTableHeader();
-        header.setFont(header.getFont().deriveFont(Font.BOLD));
+        header.setFont(new Font("Segoe UI", Font.BOLD, 13));
+
         return table;
     }
 
@@ -397,8 +400,8 @@ public class StardewValleySavesManager {
 
             if (!deviceFound) {
                 JOptionPane.showMessageDialog(frame,
-                        "No Android device connected. Please connect your device and click 'Refresh'.",
-                        "No Device",
+                        bundle.getString("dialog.error.no_device_get.title"),
+                        bundle.getString("dialog.error.no_device_get"),
                         JOptionPane.WARNING_MESSAGE);
                 return saveData;
             }
@@ -418,7 +421,7 @@ public class StardewValleySavesManager {
 
                     // Get last modified date using ADB
                     String lastPlayed = getAndroidLastModifiedDate(saveName + "_" + saveId);
-                    saveData.add(new String[]{saveName, saveId, lastPlayed});
+                    saveData.add(new String[]{saveName + " Farm", saveId, lastPlayed});
                 }
             }
 
@@ -458,7 +461,7 @@ public class StardewValleySavesManager {
                             String saveName = parts[0];
                             String saveID = parts[1];
                             String lastPlayed = getLastModifiedDate(path);
-                            saveData.add(new String[]{saveName, saveID, lastPlayed});
+                            saveData.add(new String[]{saveName + " Farm", saveID, lastPlayed});
                         } else {
                             System.err.println("Skipping invalid save folder name: " + fileName);
                         }
@@ -533,20 +536,20 @@ public class StardewValleySavesManager {
                             JOptionPane.showMessageDialog(frame, "Save backed up successfully!");
                         } else {
                             System.err.println("Error backing up save from Android. Exit code: " + exitCode);
-                            JOptionPane.showMessageDialog(frame, "Error backing up save. Check console for details.");
+                            JOptionPane.showMessageDialog(frame, bundle.getString("dialog.error.backup.device"));
                         }
                     } else {
                         // Copy the save locally
                         Files.copy(Paths.get(sourcePath), destinationPath, StandardCopyOption.REPLACE_EXISTING);
-                        JOptionPane.showMessageDialog(frame, "Save backed up successfully!");
+                        JOptionPane.showMessageDialog(frame, bundle.getString("dialog.success.backup_device"));
                     }
                 } catch (IOException | InterruptedException ex) {
                     ex.printStackTrace();
-                    JOptionPane.showMessageDialog(frame, "Error backing up save. Check console for details.");
+                    JOptionPane.showMessageDialog(frame, bundle.getString("dialog.error.backup.device"));
                 }
             }
         } else {
-            JOptionPane.showMessageDialog(frame, "Please select a save to backup.");
+            JOptionPane.showMessageDialog(frame, bundle.getString("dialog.select_save_to_backup"));
         }
     }
 
@@ -575,7 +578,7 @@ public class StardewValleySavesManager {
                         int deleteExitCode = deleteProcess.waitFor();
                         if (deleteExitCode != 0) {
                             System.err.println("Error deleting save from Android. Exit code: " + deleteExitCode);
-                            JOptionPane.showMessageDialog(frame, "Error deleting save. Check console for details.");
+                            JOptionPane.showMessageDialog(frame, bundle.getString("dialog.error.delete_save"));
                             return;
                         }
                     } else {
@@ -587,7 +590,7 @@ public class StardewValleySavesManager {
                                         Files.delete(path);
                                     } catch (IOException ex) {
                                         System.err.println("Error deleting " + path + ": " + ex.getMessage());
-                                        JOptionPane.showMessageDialog(frame, "Error deleting save. Check console for details.");
+                                        JOptionPane.showMessageDialog(frame, bundle.getString("dialog.error.delete_save"));
                                     }
                                 });
                     }
@@ -596,11 +599,11 @@ public class StardewValleySavesManager {
                     JOptionPane.showMessageDialog(frame, "Save deleted successfully!");
                 } catch (IOException | InterruptedException ex) {
                     ex.printStackTrace();
-                    JOptionPane.showMessageDialog(frame, "Error deleting save. Check console for details.");
+                    JOptionPane.showMessageDialog(frame, bundle.getString("dialog.error.delete_save"));
                 }
             }
         } else {
-            JOptionPane.showMessageDialog(frame, "Please select a save to delete.");
+            JOptionPane.showMessageDialog(frame, bundle.getString("dialog.select_save_to_delete"));
         }
     }
 
