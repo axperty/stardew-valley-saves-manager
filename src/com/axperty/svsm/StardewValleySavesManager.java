@@ -1,24 +1,22 @@
 package com.axperty.svsm;
 
+import com.axperty.svsm.properties.SetLanguage;
+import com.axperty.svsm.utils.GetData;
+import com.axperty.svsm.utils.TableBuilder;
+import com.axperty.svsm.utils.TransferSave;
+
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
-import javax.swing.table.JTableHeader;
 import javax.swing.table.TableRowSorter;
 import java.awt.*;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.nio.file.attribute.FileTime;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.List;
 
@@ -45,15 +43,11 @@ public class StardewValleySavesManager {
     }
 
     public StardewValleySavesManager() {
-        // Set the default locale for the program.
-        Locale locale = Locale.getDefault();
-        // Set the resource bundle based on the locale
-        bundle = ResourceBundle.getBundle("com.axperty.svsm.lang.en_us", locale);
+        bundle = SetLanguage.getBundle();
         initialize();
     }
 
     private void initialize() {
-
         // Set the Windows Look and Feel
         try {
             UIManager.setLookAndFeel("com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
@@ -79,7 +73,7 @@ public class StardewValleySavesManager {
         JMenu optionsMenu = new JMenu(bundle.getString("menu.options.title"));
 
         JMenuItem refreshList = new JMenuItem(bundle.getString("menu.options.refresh"));
-        refreshList.addActionListener(e -> updateTables());
+        refreshList.addActionListener(e -> TableBuilder.updateTables(androidTable, steamTable));
         optionsMenu.add(refreshList);
 
         menuBar.add(optionsMenu);
@@ -106,18 +100,18 @@ public class StardewValleySavesManager {
         frame.getContentPane().add(tabbedPane, BorderLayout.CENTER);
 
         // Steam Panel
-        steamTable = createTable();
+        steamTable = TableBuilder.createTable(bundle);
         JPanel steamPanel = createPlatformPanel(steamTable);
         tabbedPane.addTab(bundle.getString("panel.steam_folder.title"), steamPanel);
 
         // Android Panel
-        androidTable = createTable();
+        androidTable = TableBuilder.createTable(bundle);
         JPanel androidPanel = createPlatformPanel(androidTable);
         tabbedPane.addTab(bundle.getString("panel.android_folder.title"), androidPanel);
 
         // Initial actions
-        backupAllSteamSaves();
-        updateSteamTable();
+        //backupAllSteamSaves();
+        TableBuilder.updateSteamTable(steamTable);
     }
 
     // About Dialog
@@ -159,7 +153,6 @@ public class StardewValleySavesManager {
         dialog.setVisible(true);
     }
 
-
     // Menu Links
     private void donateLink() {
         try {
@@ -177,6 +170,7 @@ public class StardewValleySavesManager {
         }
     }
 
+    // Create the panel to display data
     private JPanel createPlatformPanel(JTable table) {
         JPanel panel = new JPanel(new BorderLayout());
 
@@ -256,11 +250,6 @@ public class StardewValleySavesManager {
         deleteButton.addActionListener(e -> deleteSave(table));
         buttonPanel.add(deleteButton);
 
-//        // Refresh List button
-//        JButton refreshButton = new JButton("Refresh List");
-//        refreshButton.addActionListener(e -> updateTables());
-//        buttonPanel.add(refreshButton);
-
         panel.add(buttonPanel, BorderLayout.SOUTH);
         return panel;
     }
@@ -287,224 +276,12 @@ public class StardewValleySavesManager {
             String saveId = (String) sourceTable.getValueAt(selectedRow, 1);
 
             if (targetPlatform.equals("Steam")) {
-                moveSaveToSteam(saveName, saveId);
+                TransferSave.moveSaveToSteam(saveName, saveId);
             } else if (targetPlatform.equals("Android")) {
-                moveSaveToAndroid(saveName, saveId);
+                TransferSave.moveSaveToAndroid(saveName, saveId);
             }
         } else {
             JOptionPane.showMessageDialog(frame, bundle.getString("dialog.select_save_to_move"));
-        }
-    }
-
-    // Move Save to Steam
-    private void moveSaveToSteam(String saveName, String saveId) {
-        String androidPath = "/storage/emulated/0/Android/data/com.chucklefish.stardewvalley/files/Saves/" + saveName + "_" + saveId;
-        String steamPath = System.getenv("APPDATA") + "/StardewValley/Saves/" + saveName + "_" + saveId;
-        executeSaveTransfer(androidPath, steamPath);
-    }
-
-    // Move Save to Android
-    private void moveSaveToAndroid(String saveName, String saveId) {
-        String steamPath = System.getenv("APPDATA") + "/StardewValley/Saves/" + saveName + "_" + saveId;
-        String androidPath = "/storage/emulated/0/Android/data/com.chucklefish.stardewvalley/files/Saves/" + saveName + "_" + saveId;
-        executeSaveTransfer(steamPath, androidPath);
-    }
-
-    // --- Save Transfer Methods ---
-    private void executeSaveTransfer(String sourcePath, String destinationPath) {
-        try {
-            // Determine whether to push or pull based on source path
-            String[] command = (sourcePath.startsWith("/storage"))
-                    ? new String[]{"adb", "pull", sourcePath, destinationPath}
-                    : new String[]{"adb", "push", sourcePath, destinationPath};
-
-            Process process = Runtime.getRuntime().exec(command);
-            int exitCode = process.waitFor();
-
-            if (exitCode == 0) {
-                updateTables();
-                JOptionPane.showMessageDialog(frame, bundle.getString("dialog.move_successful"));
-            } else {
-                System.err.println("No Android device connected.");
-                JOptionPane.showMessageDialog(frame,
-                        bundle.getString("dialog.error.no_device_move"),
-                        bundle.getString("dialog.error.no_device_move.title"),
-                        JOptionPane.WARNING_MESSAGE);
-            }
-        } catch (IOException | InterruptedException ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(frame, bundle.getString("dialog.error.device_moving_save"));
-        }
-    }
-
-    // --- Table Methods ---
-    private JTable createTable() {
-        JTable table = new JTable();
-        DefaultTableModel model = new DefaultTableModel();
-        model.addColumn(bundle.getString("table.farm_name.title"));
-        model.addColumn(bundle.getString("table.id.title"));
-        model.addColumn(bundle.getString("table.last_played.title"));
-        table.setModel(model);
-        table.setRowHeight(30);
-        JTableHeader header = table.getTableHeader();
-        header.setFont(new Font("Segoe UI", Font.BOLD, 13));
-
-        return table;
-    }
-
-    // Update Lists
-    private void updateTables() {
-        updateAndroidTable();
-        updateSteamTable();
-    }
-
-    // Update Android Table
-    private void updateAndroidTable() {
-        DefaultTableModel model = (DefaultTableModel) androidTable.getModel();
-        model.setRowCount(0); // Clear existing data
-        List<String[]> saveData = getAndroidSavesData();
-        for (String[] data : saveData) {
-            model.addRow(data);
-        }
-    }
-
-    // Update Steam Table
-    private void updateSteamTable() {
-        DefaultTableModel model = (DefaultTableModel) steamTable.getModel();
-        model.setRowCount(0); // Clear existing data
-        List<String[]> saveData = getSteamSavesData();
-        for (String[] data : saveData) {
-            model.addRow(data);
-        }
-    }
-
-    // --- Data Retrieval Methods (using ADB) ---
-    private List<String[]> getAndroidSavesData() {
-        List<String[]> saveData = new ArrayList<>();
-        try {
-            // Check if an Android device is connected
-            String[] deviceListCommand = {"adb", "devices"};
-            Process deviceListProcess = Runtime.getRuntime().exec(deviceListCommand);
-            BufferedReader deviceListReader = new BufferedReader(new InputStreamReader(deviceListProcess.getInputStream()));
-
-            // Skip the first line ("List of devices attached")
-            deviceListReader.readLine();
-            String deviceLine;
-            boolean deviceFound = false;
-            while ((deviceLine = deviceListReader.readLine()) != null) {
-                if (deviceLine.trim().endsWith("device")) {
-                    deviceFound = true;
-                    break;
-                }
-            }
-
-            if (!deviceFound) {
-                JOptionPane.showMessageDialog(frame,
-                        bundle.getString("dialog.error.no_device_get.title"),
-                        bundle.getString("dialog.error.no_device_get"),
-                        JOptionPane.WARNING_MESSAGE);
-                return saveData;
-            }
-
-            // List files in the Android saves directory
-            String[] command = {"adb", "shell", "ls", "/storage/emulated/0/Android/data/com.chucklefish.stardewvalley/files/Saves"};
-            Process process = Runtime.getRuntime().exec(command);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-
-            // Process each file found
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String[] parts = line.split("_");
-                if (parts.length == 2) {
-                    String saveName = parts[0];
-                    String saveId = parts[1];
-
-                    // Get last modified date using ADB
-                    String lastPlayed = getAndroidLastModifiedDate(saveName + "_" + saveId);
-                    saveData.add(new String[]{saveName + " Farm", saveId, lastPlayed});
-                }
-            }
-
-            // Error handling
-            int exitCode = process.waitFor();
-            if (exitCode != 0) {
-                System.err.println("Error executing ADB command. Exit code: " + exitCode);
-            }
-
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        return saveData;
-    }
-
-    private List<String[]> getSteamSavesData() {
-        List<String[]> saveData = new ArrayList<>();
-
-        // Get the Steam user's AppData path
-        String appDataPath = System.getenv("APPDATA");
-        if (appDataPath == null) {
-            System.err.println("Error: Unable to get APPDATA environment variable.");
-            return saveData;
-        }
-
-        String savesDirectory = appDataPath + "/StardewValley/Saves";
-
-        // Read directory contents using Java File API
-        try {
-            Files.list(Paths.get(savesDirectory))
-                    .filter(Files::isDirectory)
-                    .forEach(path -> {
-                        String fileName = path.getFileName().toString();
-                        String[] parts = fileName.split("_");
-                        if (parts.length == 2) {
-                            String saveName = parts[0];
-                            String saveID = parts[1];
-                            String lastPlayed = getLastModifiedDate(path);
-                            saveData.add(new String[]{saveName + " Farm", saveID, lastPlayed});
-                        } else {
-                            System.err.println("Skipping invalid save folder name: " + fileName);
-                        }
-                    });
-
-        } catch (IOException e) {
-            System.err.println("Error: Unable to access Steam saves directory: " + e.getMessage());
-        }
-
-        return saveData;
-    }
-
-    private String getLastModifiedDate(Path path) {
-        try {
-            BasicFileAttributes attr = Files.readAttributes(path, BasicFileAttributes.class);
-            FileTime lastModifiedTime = attr.lastModifiedTime();
-            SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy");
-            return dateFormat.format(new Date(lastModifiedTime.toMillis()));
-        } catch (IOException e) {
-            System.err.println("Error getting last modified date for " + path.toString() +
-                    ": " + e.getMessage());
-            return "N/A";
-        }
-    }
-
-    // Helper function to get the last modified date of an Android file using ADB
-    private String getAndroidLastModifiedDate(String fileName) {
-        try {
-            String filePath = "/storage/emulated/0/Android/data/com.chucklefish.stardewvalley/files/Saves/" + fileName;
-            String[] command = {"adb", "shell", "stat", "-c", "%y", filePath};
-            Process process = Runtime.getRuntime().exec(command);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            String lastModified = reader.readLine();
-
-            // Format the output
-            SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
-            SimpleDateFormat outputFormat = new SimpleDateFormat("MM/dd/yyyy");
-            Date date = inputFormat.parse(lastModified.trim());
-            return outputFormat.format(date);
-
-        } catch (IOException | ParseException e) {
-            e.printStackTrace();
-            return "N/A";
         }
     }
 
@@ -595,7 +372,7 @@ public class StardewValleySavesManager {
                                 });
                     }
 
-                    updateTables();
+                    TableBuilder.updateTables(steamTable, androidTable);
                     JOptionPane.showMessageDialog(frame, "Save deleted successfully!");
                 } catch (IOException | InterruptedException ex) {
                     ex.printStackTrace();
